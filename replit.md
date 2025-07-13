@@ -2,7 +2,15 @@
 
 ## Overview
 
-WeightWise is a full-stack web application for tracking weight progress with AI-powered image recognition capabilities. The application allows users to manually log weight entries or upload scale images for automatic weight detection. It provides comprehensive analytics, charts, and activity tracking to help users monitor their fitness journey.
+WeightWise is a full-stack web application for tracking weight progress with AI-powered image recognition capabilities. The application allows users to manually log weight entries or upload scale images for automatic weight detection using mock OCR processing. It provides comprehensive analytics, charts, and activity tracking to help users monitor their fitness journey.
+
+## Recent Changes
+
+- **July 13, 2025**: Corrected application focus back to weight tracking after temporarily becoming a business recommendation system
+- Fixed database schema to include weight_entries table instead of business-related tables
+- Updated frontend to display weight tracking functionality with charts and entry management
+- Implemented photo upload with mock OCR for automatic weight detection
+- Added comprehensive weight tracking features including manual entry, photo upload, deletion, and progress visualization
 
 ## User Preferences
 

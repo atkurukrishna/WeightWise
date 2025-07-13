@@ -3,9 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
-  businessProfileInsertSchema, 
-  customerPreferencesInsertSchema,
-  businessReviewInsertSchema,
+  weightEntryInsertSchema,
   activityLogInsertSchema 
 } from "@shared/schema";
 import multer from "multer";
@@ -57,237 +55,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Business profile routes
-  app.post("/api/business-profile", isAuthenticated, async (req: any, res) => {
+  // Weight entry routes
+  app.post("/api/weight-entries", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const validatedData = businessProfileInsertSchema.parse({
+      const validatedData = weightEntryInsertSchema.parse({
         ...req.body,
         userId,
       });
 
-      const businessProfile = await storage.createBusinessProfile(validatedData);
+      const weightEntry = await storage.createWeightEntry(validatedData);
 
       // Log activity
       await storage.createActivityLog({
         userId,
-        action: "create_business_profile",
-        description: `Business profile created: ${businessProfile.businessName}`,
-        metadata: { businessId: businessProfile.id, category: businessProfile.category },
+        action: "weight_entry",
+        description: `Manually added weight: ${weightEntry.weight} ${weightEntry.unit}`,
+        metadata: { entryId: weightEntry.id, entryType: "manual" },
       });
 
-      res.json(businessProfile);
-    } catch (error) {
-      console.error("Error creating business profile:", error);
-      res.status(400).json({ message: "Invalid business profile data" });
+      res.json(weightEntry);
+    } catch (error: any) {
+      console.error("Error creating weight entry:", error);
+      res.status(400).json({ message: error.message || "Failed to create weight entry" });
     }
   });
 
-  app.get("/api/business-profile", isAuthenticated, async (req: any, res) => {
+  app.get("/api/weight-entries", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const profile = await storage.getBusinessProfileByUserId(userId);
-      res.json(profile);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const entries = await storage.getWeightEntries(userId, limit);
+      res.json(entries);
     } catch (error) {
-      console.error("Error fetching business profile:", error);
-      res.status(500).json({ message: "Failed to fetch business profile" });
+      console.error("Error fetching weight entries:", error);
+      res.status(500).json({ message: "Failed to fetch weight entries" });
     }
   });
 
-  app.put("/api/business-profile/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/weight-entries/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const profileId = parseInt(req.params.id);
-      const validatedData = businessProfileInsertSchema.partial().parse(req.body);
-
-      const updatedProfile = await storage.updateBusinessProfile(profileId, userId, validatedData);
+      const entryId = parseInt(req.params.id);
       
-      if (!updatedProfile) {
-        return res.status(404).json({ message: "Business profile not found" });
+      // Get the entry first for logging
+      const entry = await storage.getWeightEntry(entryId, userId);
+      if (!entry) {
+        return res.status(404).json({ message: "Weight entry not found" });
       }
 
-      res.json(updatedProfile);
-    } catch (error) {
-      console.error("Error updating business profile:", error);
-      res.status(500).json({ message: "Failed to update business profile" });
-    }
-  });
+      const deleted = await storage.deleteWeightEntry(entryId, userId);
+      if (deleted) {
+        // Log activity
+        await storage.createActivityLog({
+          userId,
+          action: "weight_delete",
+          description: `Deleted weight entry: ${entry.weight} ${entry.unit}`,
+          metadata: { entryId, deletedWeight: entry.weight, deletedUnit: entry.unit },
+        });
 
-  // Business search and discovery
-  app.get("/api/businesses", async (req: any, res) => {
-    try {
-      const { search, category, limit } = req.query;
-      let businesses;
-
-      if (search) {
-        businesses = await storage.searchBusinesses(search as string, category as string);
+        res.json({ message: "Weight entry deleted successfully" });
       } else {
-        businesses = await storage.getAllBusinesses(parseInt(limit as string) || 50);
+        res.status(404).json({ message: "Weight entry not found" });
       }
-
-      res.json(businesses);
     } catch (error) {
-      console.error("Error fetching businesses:", error);
-      res.status(500).json({ message: "Failed to fetch businesses" });
+      console.error("Error deleting weight entry:", error);
+      res.status(500).json({ message: "Failed to delete weight entry" });
     }
   });
 
-  app.get("/api/businesses/:id", async (req: any, res) => {
+  // Photo upload for weight detection
+  app.post("/api/upload-weight-photo", isAuthenticated, upload.single("image"), async (req: any, res) => {
     try {
-      const businessId = parseInt(req.params.id);
-      const business = await storage.getBusinessProfile(businessId);
-      
-      if (!business) {
-        return res.status(404).json({ message: "Business not found" });
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
       }
 
-      res.json(business);
-    } catch (error) {
-      console.error("Error fetching business:", error);
-      res.status(500).json({ message: "Failed to fetch business" });
-    }
-  });
-
-  // Customer preferences
-  app.post("/api/customer-preferences", isAuthenticated, async (req: any, res) => {
-    try {
       const userId = req.user.claims.sub;
-      const validatedData = customerPreferencesInsertSchema.parse({
-        ...req.body,
-        userId,
-      });
+      
+      // Mock OCR processing
+      const detectedWeight = mockOCRProcessing();
+      const photoPath = `/uploads/${req.file.filename}`;
 
-      const preferences = await storage.createCustomerPreferences(validatedData);
+      // Create weight entry with detected weight
+      const weightEntry = await storage.createWeightEntry({
+        userId,
+        weight: detectedWeight.toString(),
+        unit: "lbs", // Default to lbs for OCR
+        entryType: "photo",
+        photoPath,
+      });
 
       // Log activity
       await storage.createActivityLog({
         userId,
-        action: "update_preferences",
-        description: "Customer preferences updated",
-        metadata: { categories: preferences.preferredCategories, budgetRange: preferences.budgetRange },
+        action: "photo_upload",
+        description: `Uploaded scale photo and detected weight: ${detectedWeight} lbs`,
+        metadata: { 
+          entryId: weightEntry.id, 
+          photoPath,
+          detectedWeight,
+          entryType: "photo"
+        },
       });
 
-      res.json(preferences);
-    } catch (error) {
-      console.error("Error creating customer preferences:", error);
-      res.status(400).json({ message: "Invalid customer preferences data" });
-    }
-  });
-
-  app.get("/api/customer-preferences", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const preferences = await storage.getCustomerPreferences(userId);
-      res.json(preferences);
-    } catch (error) {
-      console.error("Error fetching customer preferences:", error);
-      res.status(500).json({ message: "Failed to fetch customer preferences" });
-    }
-  });
-
-  app.put("/api/customer-preferences", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const validatedData = customerPreferencesInsertSchema.partial().parse(req.body);
-
-      const updatedPreferences = await storage.updateCustomerPreferences(userId, validatedData);
-      
-      if (!updatedPreferences) {
-        return res.status(404).json({ message: "Customer preferences not found" });
-      }
-
-      // Log activity
-      await storage.createActivityLog({
-        userId,
-        action: "update_preferences",
-        description: "Customer preferences updated",
-        metadata: { categories: updatedPreferences.preferredCategories, budgetRange: updatedPreferences.budgetRange },
+      res.json({
+        weightEntry,
+        detectedWeight,
+        photoPath,
+        message: "Photo uploaded and weight detected successfully",
       });
-
-      res.json(updatedPreferences);
-    } catch (error) {
-      console.error("Error updating customer preferences:", error);
-      res.status(500).json({ message: "Failed to update customer preferences" });
-    }
-  });
-
-  // Business reviews
-  app.post("/api/businesses/:id/reviews", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const businessId = parseInt(req.params.id);
-      const validatedData = businessReviewInsertSchema.parse({
-        ...req.body,
-        businessId,
-        customerId: userId,
-      });
-
-      const review = await storage.createBusinessReview(validatedData);
-
-      // Log activity
-      await storage.createActivityLog({
-        userId,
-        action: "add_review",
-        description: `Review added for business ID ${businessId}`,
-        metadata: { businessId, rating: review.rating },
-      });
-
-      res.json(review);
-    } catch (error) {
-      console.error("Error creating business review:", error);
-      res.status(400).json({ message: "Invalid review data" });
-    }
-  });
-
-  app.get("/api/businesses/:id/reviews", async (req: any, res) => {
-    try {
-      const businessId = parseInt(req.params.id);
-      const reviews = await storage.getBusinessReviews(businessId);
-      res.json(reviews);
-    } catch (error) {
-      console.error("Error fetching business reviews:", error);
-      res.status(500).json({ message: "Failed to fetch business reviews" });
-    }
-  });
-
-  app.get("/api/my-reviews", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const reviews = await storage.getUserReviews(userId);
-      res.json(reviews);
-    } catch (error) {
-      console.error("Error fetching user reviews:", error);
-      res.status(500).json({ message: "Failed to fetch user reviews" });
-    }
-  });
-
-  // Personalized recommendations
-  app.get("/api/recommendations", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const recommendations = await storage.getUserRecommendations(userId, limit);
-      res.json(recommendations);
-    } catch (error) {
-      console.error("Error fetching recommendations:", error);
-      res.status(500).json({ message: "Failed to fetch recommendations" });
-    }
-  });
-
-  app.post("/api/recommendations/:id/viewed", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const recommendationId = parseInt(req.params.id);
-      const updated = await storage.markRecommendationAsViewed(recommendationId, userId);
-      
-      if (!updated) {
-        return res.status(404).json({ message: "Recommendation not found" });
-      }
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error marking recommendation as viewed:", error);
-      res.status(500).json({ message: "Failed to update recommendation" });
+    } catch (error: any) {
+      console.error("Error processing photo upload:", error);
+      res.status(500).json({ message: error.message || "Failed to process photo upload" });
     }
   });
 
@@ -295,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/activity-logs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const logs = await storage.getActivityLogs(userId, limit);
       res.json(logs);
     } catch (error) {
