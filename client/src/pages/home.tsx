@@ -16,8 +16,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { WeightChart } from "@/components/WeightChart";
-import { FileUpload } from "@/components/FileUpload";
+import WeightChart from "@/components/WeightChart";
+import FileUpload from "@/components/FileUpload";
 import { 
   Plus, 
   TrendingUp, 

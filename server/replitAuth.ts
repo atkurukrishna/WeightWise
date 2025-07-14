@@ -67,11 +67,7 @@ async function upsertUser(
   });
 }
 
-// Google Photos API setup
-const photos = google.photos({
-  version: 'v1',
-  auth: undefined, // Will be set per-request
-});
+// Google Photos API setup (Photos Library API)
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
@@ -140,28 +136,39 @@ export async function setupAuth(app: Express) {
       return res.status(401).json({ message: "Google access token not available" });
     }
 
-    google.options({ auth: user.access_token });
-
     try {
-      const response = await photos.mediaItems.search({
-        pageSize: 30,
-        orderBy: "upload_time:desc",
-        fields: 'mediaItems(baseUrl,filename,id,mediaMetadata(creationTime))',
-        requestBody: {
+      // Create an authenticated OAuth2 client
+      const auth = new google.auth.OAuth2();
+      auth.setCredentials({ access_token: user.access_token });
+
+      // Make a direct HTTP request to the Photos Library API
+      const response = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pageSize: 30,
           filters: {
             contentFilter: {
               excludedContentCategories: [
                 "DOCUMENTS",
-                "RECEIPTS",
+                "RECEIPTS", 
                 "SCREENSHOTS",
                 "TEXT"
               ]
             }
           }
-        }
+        })
       });
 
-      const mediaItems = response.data.mediaItems || [];
+      if (!response.ok) {
+        throw new Error(`Google Photos API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const mediaItems = data.mediaItems || [];
       res.json(mediaItems);
     } catch (error: any) {
       console.error("Error fetching Google Photos:", error);
