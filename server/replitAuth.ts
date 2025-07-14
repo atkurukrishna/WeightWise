@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { google } from 'googleapis';
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -66,6 +67,12 @@ async function upsertUser(
   });
 }
 
+// Google Photos API setup
+const photos = google.photos({
+  version: 'v1',
+  auth: undefined, // Will be set per-request
+});
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -90,7 +97,7 @@ export async function setupAuth(app: Express) {
       {
         name: `replitauth:${domain}`,
         config,
-        scope: "openid email profile offline_access",
+        scope: "openid email profile offline_access https://www.googleapis.com/auth/photoslibrary.readonly",
         callbackURL: `https://${domain}/api/callback`,
       },
       verify,
@@ -104,7 +111,7 @@ export async function setupAuth(app: Express) {
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
+      scope: ["openid", "email", "profile", "offline_access", "https://www.googleapis.com/auth/photoslibrary.readonly"],
     })(req, res, next);
   });
 
@@ -124,6 +131,42 @@ export async function setupAuth(app: Express) {
         }).href
       );
     });
+  });
+
+  // Google Photos API endpoint
+  app.get("/api/photos", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    if (!user.access_token) {
+      return res.status(401).json({ message: "Google access token not available" });
+    }
+
+    google.options({ auth: user.access_token });
+
+    try {
+      const response = await photos.mediaItems.search({
+        pageSize: 30,
+        orderBy: "upload_time:desc",
+        fields: 'mediaItems(baseUrl,filename,id,mediaMetadata(creationTime))',
+        requestBody: {
+          filters: {
+            contentFilter: {
+              excludedContentCategories: [
+                "DOCUMENTS",
+                "RECEIPTS",
+                "SCREENSHOTS",
+                "TEXT"
+              ]
+            }
+          }
+        }
+      });
+
+      const mediaItems = response.data.mediaItems || [];
+      res.json(mediaItems);
+    } catch (error: any) {
+      console.error("Error fetching Google Photos:", error);
+      res.status(500).json({ message: "Failed to fetch Google Photos", error: error.message });
+    }
   });
 }
 

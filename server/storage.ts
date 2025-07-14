@@ -18,16 +18,21 @@ export interface IStorage {
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  
+
   // Weight tracking operations
   createWeightEntry(entry: InsertWeightEntry): Promise<WeightEntry>;
   getWeightEntries(userId: string, limit?: number): Promise<WeightEntry[]>;
   getWeightEntry(id: number, userId: string): Promise<WeightEntry | undefined>;
   deleteWeightEntry(id: number, userId: string): Promise<boolean>;
-  
+
   // Activity logs
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getActivityLogs(userId: string, limit?: number): Promise<ActivityLog[]>;
+
+    // Google Photos Tokens
+  storeGoogleTokens(userId: string, tokens: any): Promise<void>;
+  getGoogleTokens(userId: string): Promise<any | null>;
+  deleteGoogleTokens(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -103,6 +108,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(activityLogs.userId, userId))
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
+  }
+
+  async storeGoogleTokens(userId: string, tokens: any): Promise<void> {
+    // Store Google OAuth tokens (implement based on your database schema)
+    // For now, we'll mock this
+    console.log(`Storing Google tokens for user ${userId}:`, tokens);
+  }
+
+  async getGoogleTokens(userId: string): Promise<any | null> {
+    // Retrieve Google OAuth tokens (implement based on your database schema)
+    // For now, we'll mock this
+    console.log(`Getting Google tokens for user ${userId}`);
+    return null;
+  }
+
+  async deleteGoogleTokens(userId: string): Promise<void> {
+    // Delete Google OAuth tokens (implement based on your database schema)
+    // For now, we'll mock this
+    console.log(`Deleting Google tokens for user ${userId}`);
   }
 }
 
