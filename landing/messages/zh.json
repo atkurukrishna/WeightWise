@@ -1,0 +1,26 @@
+{
+  "title": "WeightWise钱包",
+  "tagline": "安全、个性化、全球化的加密和法币钱包。",
+  "features": {
+    "security": {
+      "title": "安全性",
+      "desc": "端到端加密保护您的资产。"
+    },
+    "personalization": {
+      "title": "个性化",
+      "desc": "根据需求定制您的钱包。"
+    },
+    "usability": {
+      "title": "易用性",
+      "desc": "简洁设计，轻松完成所有交易。"
+    },
+    "internationalization": {
+      "title": "国际化",
+      "desc": "支持全球多种语言。"
+    },
+    "multicurrency": {
+      "title": "多币种",
+      "desc": "同时管理加密货币和法定货币。"
+    }
+  }
+}

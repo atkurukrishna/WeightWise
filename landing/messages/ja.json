@@ -1,0 +1,26 @@
+{
+  "title": "WeightWiseウォレット",
+  "tagline": "安全でパーソナライズされたグローバルな暗号資産と法定通貨のウォレット。",
+  "features": {
+    "security": {
+      "title": "セキュリティ",
+      "desc": "エンドツーエンド暗号化で資産を保護します。"
+    },
+    "personalization": {
+      "title": "パーソナライゼーション",
+      "desc": "ニーズに合わせてウォレットをカスタマイズ。"
+    },
+    "usability": {
+      "title": "使いやすさ",
+      "desc": "すべての取引をシンプルに。"
+    },
+    "internationalization": {
+      "title": "国際化",
+      "desc": "世界中の言語に対応。"
+    },
+    "multicurrency": {
+      "title": "マルチ通貨",
+      "desc": "暗号資産と法定通貨をシームレスに管理。"
+    }
+  }
+}

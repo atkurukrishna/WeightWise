@@ -1,0 +1,26 @@
+{
+  "title": "Billetera WeightWise",
+  "tagline": "Billetera de cripto y fiat segura, personalizada y global.",
+  "features": {
+    "security": {
+      "title": "Seguridad",
+      "desc": "El cifrado de extremo a extremo mantiene tus activos seguros."
+    },
+    "personalization": {
+      "title": "Personalización",
+      "desc": "Adapta tu billetera a tus necesidades."
+    },
+    "usability": {
+      "title": "Usabilidad",
+      "desc": "Diseño simple para todas tus transacciones."
+    },
+    "internationalization": {
+      "title": "Internacionalización",
+      "desc": "Disponible en tu idioma en todo el mundo."
+    },
+    "multicurrency": {
+      "title": "Multidivisa",
+      "desc": "Administra cripto y fiat sin esfuerzo."
+    }
+  }
+}
