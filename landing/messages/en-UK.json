@@ -1,0 +1,26 @@
+{
+  "title": "WeightWise Wallet",
+  "tagline": "Secure, personalised, and global crypto & fiat wallet.",
+  "features": {
+    "security": {
+      "title": "Security",
+      "desc": "End-to-end encryption keeps your assets safe."
+    },
+    "personalization": {
+      "title": "Personalisation",
+      "desc": "Tailor your wallet to your needs."
+    },
+    "usability": {
+      "title": "Usability",
+      "desc": "Simple design for all your transactions."
+    },
+    "internationalization": {
+      "title": "Internationalisation",
+      "desc": "Available in your language worldwide."
+    },
+    "multicurrency": {
+      "title": "Multi-currency",
+      "desc": "Manage both crypto and fiat seamlessly."
+    }
+  }
+}
