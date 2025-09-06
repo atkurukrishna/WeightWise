@@ -1,7 +1,6 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
   weightEntryInsertSchema,
   activityLogInsertSchema 
@@ -63,7 +62,18 @@ const mockGooglePhotos = Array.from({ length: 30 }, (_, i) => ({
   }
 }));
 
+const getUserId = (req: any) => {
+  if (process.env.AUTH_PROVIDER === 'auth0') {
+    return req.user.id;
+  }
+  return req.user.claims.sub;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  const authProvider = process.env.AUTH_PROVIDER || 'replit';
+  const authModule = authProvider === 'auth0' ? await import('./auth.ts') : await import('./replitAuth.ts');
+  const { setupAuth, isAuthenticated } = authModule;
+
   // Auth middleware
   await setupAuth(app);
 
@@ -73,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -85,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Weight entry routes
   app.post("/api/weight-entries", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validatedData = weightEntryInsertSchema.parse({
         ...req.body,
         userId,
@@ -110,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/weight-entries", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const entries = await storage.getWeightEntries(userId, limit);
       res.json(entries);
@@ -122,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/weight-entries/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const entryId = parseInt(req.params.id);
       
       // Get the entry first for logging
@@ -158,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // Mock OCR processing
       const detectedWeight = mockOCRProcessing();
@@ -201,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity logs
   app.get("/api/activity-logs", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const logs = await storage.getActivityLogs(userId, limit);
       res.json(logs);
@@ -217,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: GOOGLE_PHOTOS_SCOPES,
-        state: req.user.claims.sub
+        state: getUserId(req)
       });
       res.json({ authUrl });
     } catch (error) {
@@ -251,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google Photos API routes
   app.get("/api/google-photos", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       
       // For development, return mock data
       if (process.env.NODE_ENV === 'development') {
@@ -304,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sort by creation time (newest first)
       photos.sort((a, b) => {
         const dateA = new Date(a.mediaMetadata?.creationTime || 0);
-        const dateB = new Date(b.mediaMetadata?.creationTime || 0);
+        const dateB = new Date(b.mediaMetadata?.creationTime ||.0);
         return dateB.getTime() - dateA.getTime();
       });
 
@@ -321,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/google-photos/disconnect", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       await storage.deleteGoogleTokens(userId);
       res.json({ message: "Google Photos disconnected successfully" });
     } catch (error) {
